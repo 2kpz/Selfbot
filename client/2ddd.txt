@@ -1,0 +1,141 @@
+package client
+
+import (
+	"fmt"
+	"log"
+	"net/http"
+	"time"
+
+	"github.com/gorilla/websocket"
+)
+
+// Activity represents the structure for setting a user's activity.
+type Activity struct {
+	Details    string `json:"details"`
+	State      string `json:"state"`
+	LargeImage string `json:"large_image"` // Predefined image key
+	LargeText  string `json:"large_text"`
+}
+
+// DiscordRPC manages the connection to Discord's Gateway.
+type DiscordRPC struct {
+	wsConn *websocket.Conn
+	appID  string
+	token  string
+}
+
+// New creates a new DiscordRPC instance.
+func New(appID string) (*DiscordRPC, error) {
+	if appID == "" {
+		return nil, fmt.Errorf("appID cannot be empty")
+	}
+	return &DiscordRPC{
+		appID: appID,
+	}, nil
+}
+
+// Connect establishes a WebSocket connection to Discord's Gateway.
+func (d *DiscordRPC) Connect(token string) error {
+	if d.wsConn != nil {
+		return fmt.Errorf("already connected to Discord Gateway")
+	}
+
+	d.token = token
+
+	header := http.Header{}
+	header.Add("Authorization", token)
+
+	var err error
+	d.wsConn, _, err = websocket.DefaultDialer.Dial("wss://gateway.discord.gg/?v=10&encoding=json", header)
+	if err != nil {
+		return fmt.Errorf("failed to connect to Discord Gateway: %v", err)
+	}
+	log.Println("Connected to Discord Gateway!")
+
+	// Handle initial Hello event
+	var hello struct {
+		Op int `json:"op"`
+		D  struct {
+			HeartbeatInterval int `json:"heartbeat_interval"`
+		} `json:"d"`
+	}
+	err = d.wsConn.ReadJSON(&hello)
+	if err != nil {
+		d.Close()
+		return fmt.Errorf("failed to read Hello event: %v", err)
+	}
+
+	// Start heartbeat loop
+	go func() {
+		if hello.D.HeartbeatInterval == 0 {
+			log.Println("Heartbeat interval is 0, not starting heartbeat loop.")
+			return
+		}
+
+		ticker := time.NewTicker(time.Duration(hello.D.HeartbeatInterval) * time.Millisecond)
+		defer ticker.Stop()
+
+		for range ticker.C {
+			heartbeat := map[string]interface{}{
+				"op": 1, // Opcode 1 for heartbeat
+				"d":  nil,
+			}
+			err := d.wsConn.WriteJSON(heartbeat)
+			if err != nil {
+				log.Printf("Error sending heartbeat: %v", err)
+				break
+			}
+		}
+	}()
+
+	return nil
+}
+
+// SetActivity updates the user's activity on Discord.
+func (d *DiscordRPC) SetActivity(activity Activity) error {
+	if d.wsConn == nil {
+		return fmt.Errorf("not connected to Discord Gateway")
+	}
+
+	if activity == (Activity{}) {
+		return fmt.Errorf("empty activity")
+	}
+
+	payload := map[string]interface{}{
+		"op": 3, // Opcode 3 for setting presence
+		"d": map[string]interface{}{
+			"since": nil,
+			"activities": []map[string]interface{}{
+				{
+					"name":    "Custom Status", // Required field
+					"type":    0,               // 0 = Playing, 1 = Streaming, etc.
+					"details": activity.Details,
+					"state":   activity.State,
+					"assets": map[string]interface{}{
+						"large_image": activity.LargeImage, // Use predefined image key
+						"large_text":  activity.LargeText,
+					},
+					"timestamps": map[string]interface{}{
+						"start": time.Now().Unix(), // Optional: Show elapsed time
+					},
+				},
+			},
+			"status": "online",
+			"afk":    false,
+		},
+	}
+
+	err := d.wsConn.WriteJSON(payload)
+	if err != nil {
+		return fmt.Errorf("failed to set activity: %v", err)
+	}
+	return nil
+}
+
+// Close closes the WebSocket connection.
+func (d *DiscordRPC) Close() {
+	if d.wsConn != nil {
+		d.wsConn.Close()
+		d.wsConn = nil
+	}
+}

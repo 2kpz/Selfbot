@@ -1,0 +1,22 @@
+{
+    "token": "",
+    "owner_id": "",
+    "lastFMAPIKEY": "",
+    "lastFMAPIUsername": "",
+    "appid": "",
+    "imgurl": "https://i.pinimg.com/736x/18/e1/89/18e1891924f5c579dc2cd574124f7ca7.jpg",
+    "quote": "Busy with Coding",
+    "afktext": "You've mentioned me, I'm currently not at my PC %s",
+    "prefix": ".",
+    "autoReactToggle": true,
+    "autoReactEmoji": "",
+    "clan_guild_id": "1350443577796464681",
+    "rotate_guilds": true,
+    "guild_ids": [
+        "1369454946830782555",
+        "1369103576290430997",
+        "1369785328021274644",
+        "1298592315694387220",
+        "1350443577796464685"
+    ]
+}
