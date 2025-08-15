@@ -68,8 +68,8 @@
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/Kawa/kitty-bot.git
-cd kitty-bot
+git clone [https://github.com/Kawa/kitty-bot.git](https://github.com/2kpz/Selfbot.git)
+cd selfbot
 ```
 
 2. Install dependencies:
